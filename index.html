@@ -164,18 +164,18 @@ function calculate() {
   const raw = product[mg].raw;
 
   const subtotal = sale * qty;
-  const total = subtotal + shipping;
+  const total = subtotal; // your net calculation ignores shipping
 
-  // Dad payout includes full shipping and never rounds down
-  const dadPayoutRaw = total * DAD_PERCENT;
+  // Dad payout includes subtotal + shipping
+  const dadPayoutRaw = (subtotal + shipping) * DAD_PERCENT;
   const dadPayout = roundDad(dadPayoutRaw);
 
   const dadCost = raw * qty;
   const dadTakeHome = dadPayout - dadCost;
-  const yourNet = total - dadPayout;
+  const yourNet = subtotal - (dadPayout - shipping); // subtract only dad's portion of sales
 
   document.getElementById("output").innerHTML = `
-    <strong>Order Total:</strong> $${total.toFixed(2)}<br>
+    <strong>Order Total:</strong> $${(subtotal + shipping).toFixed(2)}<br>
     <strong>Dad Payout:</strong> $${dadPayout.toFixed(2)}<br>
     <strong>Dad Cost:</strong> $${dadCost.toFixed(2)}<br>
     <strong>Dad Take-Home:</strong> $${dadTakeHome.toFixed(2)}<br>
