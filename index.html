@@ -50,8 +50,8 @@ select, input {
 
   <label>Shipping</label>
   <select id="shipping">
-    <option value="10">5-Day ($10)</option>
-    <option value="15">3-Day ($15)</option>
+    <option value="10">5 Day ($10)</option>
+    <option value="15">3 Day ($15)</option>
   </select>
 
   <div class="result" id="output"></div>
@@ -60,25 +60,18 @@ select, input {
 <script>
 const DAD_PERCENT = 0.4545;
 
-/* ---------- Helper: Round UP or DOWN (for sale prices) ---------- */
+/* ---------- Helper: Round UP to nearest 5 or 10 (do not round down) ---------- */
 function roundSmart(n){
   const step = n <= 100 ? 5 : 10;
   const lower = Math.floor(n / step) * step;
   const upper = Math.ceil(n / step) * step;
-  if (n - lower <= 1.5) return lower; // can round down for sale
+
+  // Round up only if above lower step + 1.5, otherwise leave as is
+  if (n - lower <= 1.5) return n;
   return upper;
 }
 
-/* ---------- Helper: Round Dad's payout (never round down, leave in-between as-is) ---------- */
-function roundDad(n){
-  const step = n <= 100 ? 5 : 10;
-  const lower = Math.floor(n / step) * step;
-  const upper = Math.ceil(n / step) * step;
-  if (n > lower && n < upper) return n; // leave as is
-  return upper; // round up if on step boundary or above
-}
-
-/* Force two decimal precision to avoid floating point quirks */
+/* ---------- Fix floating point errors ---------- */
 function fixFloat(n) {
   return Math.round(n * 100) / 100;
 }
@@ -170,15 +163,13 @@ function calculate() {
 
   const subtotal = sale * qty;
 
-  // Dad's payout: calculate from sales only, round UP properly, then add shipping
-  let dadShare = roundDad(subtotal * DAD_PERCENT);
-  dadShare = fixFloat(dadShare); // fix floating point quirks
-  const dadPayout = dadShare + shipping;
+  // Dad payout includes shipping BEFORE rounding
+  let dadPayout = roundSmart(subtotal * DAD_PERCENT + shipping);
   const dadCost = raw * qty;
   const dadTakeHome = fixFloat(dadPayout - dadCost);
 
-  // Your net from sales only, rounded 2 decimals
-  const yourNet = fixFloat(subtotal - subtotal * DAD_PERCENT);
+  // Your net = remainder of order total after dad payout
+  const yourNet = fixFloat(subtotal + shipping - dadPayout);
 
   document.getElementById("output").innerHTML = `
     <strong>Order Total:</strong> $${fixFloat(subtotal + shipping).toFixed(2)}<br>
