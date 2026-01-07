@@ -69,12 +69,12 @@ function roundSmart(n){
   return upper;
 }
 
-/* ---------- Helper: Round using same logic but never below n ---------- */
+/* ---------- Helper: Round using same logic but never round down ---------- */
 function roundDad(n){
   const step = n <= 100 ? 5 : 10;
   const lower = Math.floor(n / step) * step;
   const upper = Math.ceil(n / step) * step;
-  if (n - lower <= 1.5) return n; // never round down
+  if (n <= upper && n > lower) return n; // leave as is if between steps
   return upper; // otherwise round up
 }
 
@@ -164,15 +164,14 @@ function calculate() {
   const raw = product[mg].raw;
 
   const subtotal = sale * qty;
-  const total = subtotal; // your net calculation ignores shipping
 
-  // Dad payout includes subtotal + shipping
-  const dadPayoutRaw = (subtotal + shipping) * DAD_PERCENT;
-  const dadPayout = roundDad(dadPayoutRaw);
-
+  // Dad gets 45.45% of subtotal + full shipping
+  const dadPayout = roundDad(subtotal * DAD_PERCENT + shipping);
   const dadCost = raw * qty;
   const dadTakeHome = dadPayout - dadCost;
-  const yourNet = subtotal - (dadPayout - shipping); // subtract only dad's portion of sales
+
+  // Your net only comes from sales portion
+  const yourNet = subtotal - subtotal * DAD_PERCENT;
 
   document.getElementById("output").innerHTML = `
     <strong>Order Total:</strong> $${(subtotal + shipping).toFixed(2)}<br>
