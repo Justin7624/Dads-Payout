@@ -74,7 +74,7 @@ function roundDad(n){
   const step = n <= 100 ? 5 : 10;
   const lower = Math.floor(n / step) * step;
   const upper = Math.ceil(n / step) * step;
-  if (n <= upper && n > lower) return n; // leave as is if between steps
+  if (n > lower && n < upper) return n; // leave as is if between steps
   return upper; // otherwise round up
 }
 
@@ -165,12 +165,13 @@ function calculate() {
 
   const subtotal = sale * qty;
 
-  // Dad gets 45.45% of subtotal + full shipping
-  const dadPayout = roundDad(subtotal * DAD_PERCENT + shipping);
+  // Dad's payout: calculate from sales, round, then add shipping
+  const dadShare = roundDad(subtotal * DAD_PERCENT);
+  const dadPayout = dadShare + shipping;
   const dadCost = raw * qty;
   const dadTakeHome = dadPayout - dadCost;
 
-  // Your net only comes from sales portion
+  // Your net only from sales portion
   const yourNet = subtotal - subtotal * DAD_PERCENT;
 
   document.getElementById("output").innerHTML = `
