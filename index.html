@@ -54,13 +54,23 @@ select, input {
 <script>
 const DAD_PERCENT = 0.4545;
 
-/* ---------- Helper: Round UP to nearest 5 or 10 ---------- */
+/* ---------- Helper: Round UP or DOWN (for sale prices) ---------- */
 function roundSmart(n){
   const step = n <= 100 ? 5 : 10;
   const lower = Math.floor(n / step) * step;
   const upper = Math.ceil(n / step) * step;
-  if (n - lower <= 1.5) return lower;
+  if (n - lower <= 1.5) return lower; // can round down for sale
   return upper;
+}
+
+/* ---------- Helper: Round using same logic but never below n ---------- */
+function roundDad(n){
+  const step = n <= 100 ? 5 : 10;
+  const lower = Math.floor(n / step) * step;
+  const upper = Math.ceil(n / step) * step;
+  // if rounding down would reduce n, keep original
+  if (n - lower <= 1.5) return n; // never round down
+  return upper; // otherwise round up
 }
 
 const PRICE_MULTIPLIER = 4.29;
@@ -148,9 +158,9 @@ function calculate() {
 
   const total = sale * qty;
 
-  // Dad payout using same rounding logic
+  // Dad payout: apply new "never round down" rule
   const dadPayoutRaw = total * DAD_PERCENT;
-  const dadPayout = roundSmart(dadPayoutRaw);
+  const dadPayout = roundDad(dadPayoutRaw);
 
   const dadCost = raw * qty;
   const dadTakeHome = dadPayout - dadCost;
