@@ -147,7 +147,11 @@ function calculate() {
   const raw = product[mg].raw;
 
   const total = sale * qty;
-  const dadPayout = total * DAD_PERCENT;
+
+  // Dad payout using same rounding logic
+  const dadPayoutRaw = total * DAD_PERCENT;
+  const dadPayout = roundSmart(dadPayoutRaw);
+
   const dadCost = raw * qty;
   const dadTakeHome = dadPayout - dadCost;
   const yourNet = total - dadPayout;
