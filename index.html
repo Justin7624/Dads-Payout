@@ -60,15 +60,14 @@ select, input {
 <script>
 const DAD_PERCENT = 0.4545;
 
-/* ---------- Helper: Round UP to nearest 5 or 10 (do not round down) ---------- */
+/* ---------- Helper: Round UP to nearest 5 or 10 (only if above lower +1.5) ---------- */
 function roundSmart(n){
   const step = n <= 100 ? 5 : 10;
   const lower = Math.floor(n / step) * step;
-  const upper = Math.ceil(n / step) * step;
 
-  // Round up only if above lower step + 1.5, otherwise leave as is
+  // Only round up if difference to lower step > 1.5
   if (n - lower <= 1.5) return n;
-  return upper;
+  return Math.ceil(n / step) * step;
 }
 
 /* ---------- Fix floating point errors ---------- */
@@ -163,8 +162,11 @@ function calculate() {
 
   const subtotal = sale * qty;
 
-  // Dad payout includes shipping BEFORE rounding
-  let dadPayout = roundSmart(subtotal * DAD_PERCENT + shipping);
+  // 1️⃣ Dad payout from subtotal only, rounded smart
+  let dadPayoutBase = roundSmart(subtotal * DAD_PERCENT);
+
+  // 2️⃣ Add full shipping AFTER rounding
+  const dadPayout = fixFloat(dadPayoutBase + shipping);
   const dadCost = raw * qty;
   const dadTakeHome = fixFloat(dadPayout - dadCost);
 
