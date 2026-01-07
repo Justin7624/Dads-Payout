@@ -1,70 +1,35 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<title>Payout Calculator</title>
-<style>
-body {
-  font-family: Arial, sans-serif;
-  background: #f5f5f5;
-  padding: 20px;
-}
-.card {
-  max-width: 620px;
-  background: #fff;
-  padding: 20px;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0,0,0,.1);
-}
-label {
-  display: block;
-  margin-top: 12px;
-  font-weight: bold;
-}
-select, input {
-  width: 100%;
-  padding: 8px;
-  margin-top: 6px;
-}
-.result {
-  margin-top: 18px;
-  background: #fafafa;
-  padding: 12px;
-  border-radius: 6px;
-}
-</style>
-</head>
-<body>
-
-<div class="card">
-  <h2>Payout Calculator</h2>
-
-  <label>Product</label>
-  <select id="product"></select>
-
-  <label>MG Strength</label>
-  <select id="mg"></select>
-
-  <label>Quantity</label>
-  <input type="number" id="qty" value="1" min="1">
-
-  <div class="result" id="output"></div>
-</div>
-
 <script>
 const DAD_PERCENT = 0.4545;
+
+/* ---------- Helper: Round UP to nearest 5 or 10 ---------- */
+function roundSmart(n){
+  const step = n <= 100 ? 5 : 10;
+
+  const lower = Math.floor(n / step) * step;
+  const upper = Math.ceil(n / step) * step;
+
+  // If price is within $1.5 of the LOWER step, round DOWN
+  if (n - lower <= 1.5) {
+    return lower;
+  }
+
+  return upper;
+}
+
+const PRICE_MULTIPLIER = 4.29;
 
 /*
   🔧 DATA ONLY — paste your values here locally
   Rename Product A/B/C/etc as needed.
+  Raw prices are still required; sale prices will be calculated automatically
 */
 const PRODUCTS = {
-  "Product A": {
-    5:  { sale: 0, raw: 0 },
-    10: { sale: 0, raw: 0 },
-    15: { sale: 0, raw: 0 },
-    20: { sale: 0, raw: 0 },
-    30: { sale: 0, raw: 0 }
+  "Retatrutide": {
+    5:  { sale: 0, raw: 14 },
+    10: { sale: 0, raw: 18 },
+    15: { sale: 0, raw: 22 },
+    20: { sale: 0, raw: 25 },
+    30: { sale: 0, raw: 35 }
   },
   "Product B": {
     5:  { sale: 0, raw: 0 },
@@ -82,6 +47,17 @@ const PRODUCTS = {
   }
 };
 
+/* ---------- AUTO-CALCULATE SALE PRICES ---------- */
+for (const productName in PRODUCTS) {
+  const product = PRODUCTS[productName];
+  for (const mg in product) {
+    const rawPrice = product[mg].raw;
+    const salePrice = roundSmart(rawPrice * PRICE_MULTIPLIER);
+    product[mg].sale = salePrice;
+  }
+}
+
+/* ---------- UI SETUP ---------- */
 const productSelect = document.getElementById("product");
 const mgSelect = document.getElementById("mg");
 
@@ -136,6 +112,3 @@ document.getElementById("qty").addEventListener("input", calculate);
 loadMGs();
 calculate();
 </script>
-
-</body>
-</html>
