@@ -69,13 +69,18 @@ function roundSmart(n){
   return upper;
 }
 
-/* ---------- Helper: Round using same logic but never round down ---------- */
+/* ---------- Helper: Round Dad's payout (never round down, leave in-between as-is) ---------- */
 function roundDad(n){
   const step = n <= 100 ? 5 : 10;
   const lower = Math.floor(n / step) * step;
   const upper = Math.ceil(n / step) * step;
-  if (n > lower && n < upper) return n; // leave as is if between steps
-  return upper; // otherwise round up
+  if (n > lower && n < upper) return n; // leave as is
+  return upper; // round up if on step boundary or above
+}
+
+/* Force two decimal precision to avoid floating point quirks */
+function fixFloat(n) {
+  return Math.round(n * 100) / 100;
 }
 
 const PRICE_MULTIPLIER = 4.29;
@@ -165,17 +170,18 @@ function calculate() {
 
   const subtotal = sale * qty;
 
-  // Dad's payout: calculate from sales, round, then add shipping
-  const dadShare = roundDad(subtotal * DAD_PERCENT);
+  // Dad's payout: calculate from sales only, round UP properly, then add shipping
+  let dadShare = roundDad(subtotal * DAD_PERCENT);
+  dadShare = fixFloat(dadShare); // fix floating point quirks
   const dadPayout = dadShare + shipping;
   const dadCost = raw * qty;
-  const dadTakeHome = dadPayout - dadCost;
+  const dadTakeHome = fixFloat(dadPayout - dadCost);
 
-  // Your net only from sales portion
-  const yourNet = subtotal - subtotal * DAD_PERCENT;
+  // Your net from sales only, rounded 2 decimals
+  const yourNet = fixFloat(subtotal - subtotal * DAD_PERCENT);
 
   document.getElementById("output").innerHTML = `
-    <strong>Order Total:</strong> $${(subtotal + shipping).toFixed(2)}<br>
+    <strong>Order Total:</strong> $${fixFloat(subtotal + shipping).toFixed(2)}<br>
     <strong>Dad Payout:</strong> $${dadPayout.toFixed(2)}<br>
     <strong>Dad Cost:</strong> $${dadCost.toFixed(2)}<br>
     <strong>Dad Take-Home:</strong> $${dadTakeHome.toFixed(2)}<br>
