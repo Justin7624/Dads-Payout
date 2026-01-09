@@ -26,20 +26,27 @@ select, input, button {
   padding: 8px;
   margin-top: 6px;
 }
-.row {
+button {
+  cursor: pointer;
+}
+.line-item {
   border: 1px solid #ddd;
   padding: 12px;
   border-radius: 6px;
-  margin-top: 10px;
+  margin-top: 12px;
+  background: #fafafa;
 }
 .result {
   margin-top: 18px;
-  background: #fafafa;
-  padding: 12px;
+  background: #f0f0f0;
+  padding: 14px;
   border-radius: 6px;
 }
-button {
-  cursor: pointer;
+.remove-btn {
+  margin-top: 8px;
+  background: #e74c3c;
+  color: white;
+  border: none;
 }
 </style>
 </head>
@@ -49,7 +56,8 @@ button {
   <h2>Payout Calculator</h2>
 
   <div id="items"></div>
-  <button onclick="addItem()">➕ Add Peptide</button>
+
+  <button onclick="addItem()">+ Add Item</button>
 
   <label>Shipping</label>
   <select id="shipping">
@@ -64,16 +72,20 @@ button {
 const DAD_PERCENT = 0.4545;
 const PRICE_MULTIPLIER = 4.29;
 
-/* ---------- Rounding ---------- */
+/* ---------- Rounding: ONLY round UP if above lower + 1.5 ---------- */
 function roundSmart(n){
   const step = n <= 100 ? 5 : 10;
   const lower = Math.floor(n / step) * step;
   if (n - lower <= 1.5) return n;
   return Math.ceil(n / step) * step;
 }
-const fixFloat = n => Math.round(n * 100) / 100;
 
-/* ---------- PRODUCT DATA (UNCHANGED) ---------- */
+/* ---------- Fix floating errors ---------- */
+function fixFloat(n){
+  return Math.round(n * 100) / 100;
+}
+
+/* ---------- PRODUCTS ---------- */
 const PRODUCTS = {
   "Retatrutide": {5:{raw:14},10:{raw:18},15:{raw:22},20:{raw:25},30:{raw:35}},
   "Tirzepatide": {5:{raw:15},10:{raw:18},15:{raw:22},20:{raw:26},30:{raw:30},40:{raw:35},50:{raw:40},60:{raw:45}},
@@ -97,7 +109,6 @@ const PRODUCTS = {
   "GHK-CU": {50:{raw:18},100:{raw:35}},
   "DSIP": {5:{raw:12},10:{raw:20},15:{raw:28}},
   "Epithalon": {10:{raw:15},50:{raw:60}},
-  "KPV": {"see label":{raw:0}},
   "Semax": {5:{raw:12},10:{raw:20},30:{raw:50}},
   "Selank": {5:{raw:12},10:{raw:20},30:{raw:50}},
   "5-amino-1mq": {5:{raw:12},10:{raw:20},50:{raw:95}},
@@ -114,84 +125,82 @@ const PRODUCTS = {
   "Acetic Acid": {10:{raw:3}}
 };
 
-/* ---------- AUTO-CALCULATE SALE PRICES ---------- */
+/* ---------- Calculate SALE prices ---------- */
 for (const p in PRODUCTS) {
   for (const mg in PRODUCTS[p]) {
     PRODUCTS[p][mg].sale = roundSmart(PRODUCTS[p][mg].raw * PRICE_MULTIPLIER);
   }
 }
 
-const itemsDiv = document.getElementById("items");
+function addItem(){
+  const div = document.createElement("div");
+  div.className = "line-item";
 
-function addItem() {
-  const row = document.createElement("div");
-  row.className = "row";
-
-  row.innerHTML = `
+  div.innerHTML = `
     <label>Product</label>
     <select class="product"></select>
 
     <label>MG</label>
     <select class="mg"></select>
 
-    <label>Quantity</label>
+    <label>Qty</label>
     <input type="number" class="qty" value="1" min="1">
 
-    <button onclick="this.parentElement.remove(); calculate()">Remove</button>
+    <button class="remove-btn">Remove</button>
   `;
 
-  const productSel = row.querySelector(".product");
-  const mgSel = row.querySelector(".mg");
+  document.getElementById("items").appendChild(div);
 
-  Object.keys(PRODUCTS).forEach(p => {
-    const o = document.createElement("option");
-    o.value = p;
-    o.textContent = p;
-    productSel.appendChild(o);
+  const productSelect = div.querySelector(".product");
+  const mgSelect = div.querySelector(".mg");
+
+  Object.keys(PRODUCTS).forEach(p=>{
+    const opt=document.createElement("option");
+    opt.value=p; opt.textContent=p;
+    productSelect.appendChild(opt);
   });
 
-  function loadMGs() {
-    mgSel.innerHTML = "";
-    Object.keys(PRODUCTS[productSel.value]).forEach(mg => {
-      const o = document.createElement("option");
-      o.value = mg;
-      o.textContent = `${mg} mg`;
-      mgSel.appendChild(o);
+  function loadMG(){
+    mgSelect.innerHTML="";
+    const prod=PRODUCTS[productSelect.value];
+    Object.keys(prod).forEach(mg=>{
+      const opt=document.createElement("option");
+      opt.value=mg; opt.textContent=mg+" mg";
+      mgSelect.appendChild(opt);
     });
     calculate();
   }
 
-  productSel.addEventListener("change", loadMGs);
-  mgSel.addEventListener("change", calculate);
-  row.querySelector(".qty").addEventListener("input", calculate);
+  productSelect.addEventListener("change", loadMG);
+  mgSelect.addEventListener("change", calculate);
+  div.querySelector(".qty").addEventListener("input", calculate);
+  div.querySelector(".remove-btn").onclick = ()=>{ div.remove(); calculate(); };
 
-  loadMGs();
-  itemsDiv.appendChild(row);
+  loadMG();
 }
 
-function calculate() {
-  const rows = document.querySelectorAll(".row");
-  let subtotal = 0;
-  let dadCost = 0;
+function calculate(){
+  let subtotal=0;
+  let dadCost=0;
 
-  rows.forEach(r => {
-    const p = r.querySelector(".product").value;
-    const mg = r.querySelector(".mg").value;
-    const qty = Number(r.querySelector(".qty").value);
-
-    subtotal += PRODUCTS[p][mg].sale * qty;
-    dadCost += PRODUCTS[p][mg].raw * qty;
+  document.querySelectorAll(".line-item").forEach(item=>{
+    const p=item.querySelector(".product").value;
+    const mg=item.querySelector(".mg").value;
+    const qty=Number(item.querySelector(".qty").value);
+    const data=PRODUCTS[p][mg];
+    subtotal += data.sale * qty;
+    dadCost += data.raw * qty;
   });
 
-  const shipping = Number(document.getElementById("shipping").value);
+  const shipping=Number(document.getElementById("shipping").value);
 
   const dadBase = roundSmart(subtotal * DAD_PERCENT);
   const dadPayout = fixFloat(dadBase + shipping);
   const dadTakeHome = fixFloat(dadPayout - dadCost);
   const yourNet = fixFloat(subtotal + shipping - dadPayout);
 
-  document.getElementById("output").innerHTML = `
-    <strong>Order Total:</strong> $${fixFloat(subtotal + shipping).toFixed(2)}<br>
+  document.getElementById("output").innerHTML=`
+    <strong>Order Total:</strong> $${fixFloat(subtotal+shipping).toFixed(2)}<br>
     <strong>Dad Payout:</strong> $${dadPayout.toFixed(2)}<br>
     <strong>Dad Cost:</strong> $${dadCost.toFixed(2)}<br>
     <strong>Dad Take-Home:</strong> $${dadTakeHome.toFixed(2)}<br>
@@ -200,8 +209,6 @@ function calculate() {
 }
 
 document.getElementById("shipping").addEventListener("change", calculate);
-
-/* ---------- Start with one item ---------- */
 addItem();
 </script>
 
