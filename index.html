@@ -10,7 +10,7 @@ body {
   padding: 20px;
 }
 .card {
-  max-width: 620px;
+  max-width: 720px;
   background: #fff;
   padding: 20px;
   border-radius: 8px;
@@ -21,16 +21,25 @@ label {
   margin-top: 12px;
   font-weight: bold;
 }
-select, input {
+select, input, button {
   width: 100%;
   padding: 8px;
   margin-top: 6px;
+}
+.row {
+  border: 1px solid #ddd;
+  padding: 12px;
+  border-radius: 6px;
+  margin-top: 10px;
 }
 .result {
   margin-top: 18px;
   background: #fafafa;
   padding: 12px;
   border-radius: 6px;
+}
+button {
+  cursor: pointer;
 }
 </style>
 </head>
@@ -39,14 +48,9 @@ select, input {
 <div class="card">
   <h2>Payout Calculator</h2>
 
-  <label>Product</label>
-  <select id="product"></select>
+  <div id="items"></div>
 
-  <label>MG Strength</label>
-  <select id="mg"></select>
-
-  <label>Quantity</label>
-  <input type="number" id="qty" value="1" min="1">
+  <button onclick="addItem()">➕ Add Peptide</button>
 
   <label>Shipping</label>
   <select id="shipping">
@@ -59,122 +63,105 @@ select, input {
 
 <script>
 const DAD_PERCENT = 0.4545;
+const PRICE_MULTIPLIER = 4.29;
 
-/* ---------- Helper: Round UP to nearest 5 or 10 (only if above lower +1.5) ---------- */
+/* ---------- Rounding ---------- */
 function roundSmart(n){
   const step = n <= 100 ? 5 : 10;
   const lower = Math.floor(n / step) * step;
-
-  // Only round up if difference to lower step > 1.5
   if (n - lower <= 1.5) return n;
   return Math.ceil(n / step) * step;
 }
+const fix = n => Math.round(n * 100) / 100;
 
-/* ---------- Fix floating point errors ---------- */
-function fixFloat(n) {
-  return Math.round(n * 100) / 100;
-}
-
-const PRICE_MULTIPLIER = 4.29;
-
-/* ---------- PRODUCT DATA (with RAW values) ---------- */
+/* ---------- PRODUCT DATA ---------- */
 const PRODUCTS = {
   "Retatrutide": {5:{raw:14},10:{raw:18},15:{raw:22},20:{raw:25},30:{raw:35}},
-  "Tirzepatide": {5:{raw:15},10:{raw:18},15:{raw:22},20:{raw:26},30:{raw:30},40:{raw:35},50:{raw:40},60:{raw:45}},
+  "Tirzepatide": {5:{raw:15},10:{raw:18},15:{raw:22},20:{raw:26},30:{raw:30}},
   "Semaglutide": {5:{raw:12},10:{raw:16},15:{raw:20},20:{raw:24}},
-  "Cagrilintide": {5:{raw:10},10:{raw:18}},
-  "MOTS-C": {10:{raw:12},30:{raw:28},40:{raw:35}},
   "BPC-157": {10:{raw:10},20:{raw:18}},
-  "BPC 5mg + TB 5mg": {10:{raw:15}},
-  "BPC 10mg + TB 10mg": {20:{raw:28}},
   "TB500": {5:{raw:12},10:{raw:22}},
-  "Melanotan": {10:{raw:15}},
-  "Melanotan 2": {10:{raw:18}},
-  "GLOW": {70:{raw:60}},
-  "KLOW": {80:{raw:65}},
-  "NAD+": {500:{raw:50},1000:{raw:95}},
-  "Ipamorelin": {5:{raw:12},10:{raw:20}},
-  "Tesamorelin": {5:{raw:15},10:{raw:28}},
-  "Sermorelin Acetate": {5:{raw:12},10:{raw:22}},
-  "SS-31 2": {10:{raw:18}},
-  "IGF-1 LR3": {1:{raw:10}},
-  "GHK-CU": {50:{raw:18},100:{raw:35}},
-  "DSIP": {5:{raw:12},10:{raw:20},15:{raw:28}},
-  "Epithalon": {10:{raw:15},50:{raw:60}},
-  "KPV": {"see label":{raw:0}},
-  "Semax": {5:{raw:12},10:{raw:20},30:{raw:50}},
-  "Selank": {5:{raw:12},10:{raw:20},30:{raw:50}},
-  "5-amino-1mq": {5:{raw:12},10:{raw:20},50:{raw:95}},
-  "CJC-1295 (no DAC)": {5:{raw:12},10:{raw:20}},
-  "CJC-1295 + Ipamorelin": {10:{raw:22}},
-  "AOD-9604": {5:{raw:12},10:{raw:20}},
-  "FOXO4-DRI": {10:{raw:35}},
-  "AHK-CU": {100:{raw:75}},
-  "Glutathione": {1500:{raw:50}},
-  "HGH 191AA": {10:{raw:35},15:{raw:50},24:{raw:80},36:{raw:120}},
-  "KissPeptin-10": {10:{raw:18}},
-  "Bacteriostatic Water": {10:{raw:3}},
-  "Hospira Bacteriostatic Water": {30:{raw:6}},
-  "Acetic Acid": {10:{raw:3}}
+  "GHK-CU": {50:{raw:18},100:{raw:35}}
 };
 
-/* ---------- AUTO-CALCULATE SALE PRICES ---------- */
-for (const productName in PRODUCTS) {
-  const product = PRODUCTS[productName];
-  for (const mg in product) {
-    const rawPrice = product[mg].raw;
-    const salePrice = roundSmart(rawPrice * PRICE_MULTIPLIER);
-    product[mg].sale = salePrice;
+/* ---------- Calculate sale prices ---------- */
+for (const p in PRODUCTS) {
+  for (const mg in PRODUCTS[p]) {
+    PRODUCTS[p][mg].sale = roundSmart(PRODUCTS[p][mg].raw * PRICE_MULTIPLIER);
   }
 }
 
-/* ---------- UI SETUP ---------- */
-const productSelect = document.getElementById("product");
-const mgSelect = document.getElementById("mg");
-const shippingSelect = document.getElementById("shipping");
+const itemsDiv = document.getElementById("items");
 
-Object.keys(PRODUCTS).forEach(p => {
-  const opt = document.createElement("option");
-  opt.value = p;
-  opt.textContent = p;
-  productSelect.appendChild(opt);
-});
+function addItem() {
+  const div = document.createElement("div");
+  div.className = "row";
 
-function loadMGs() {
-  mgSelect.innerHTML = "";
-  const product = PRODUCTS[productSelect.value];
-  Object.keys(product).forEach(mg => {
+  div.innerHTML = `
+    <label>Product</label>
+    <select class="product"></select>
+
+    <label>MG</label>
+    <select class="mg"></select>
+
+    <label>Quantity</label>
+    <input type="number" class="qty" value="1" min="1">
+
+    <button onclick="this.parentElement.remove(); calculate()">Remove</button>
+  `;
+
+  const productSelect = div.querySelector(".product");
+  const mgSelect = div.querySelector(".mg");
+
+  Object.keys(PRODUCTS).forEach(p => {
     const opt = document.createElement("option");
-    opt.value = mg;
-    opt.textContent = `${mg} mg`;
-    mgSelect.appendChild(opt);
+    opt.value = p;
+    opt.textContent = p;
+    productSelect.appendChild(opt);
   });
+
+  function loadMGs() {
+    mgSelect.innerHTML = "";
+    Object.keys(PRODUCTS[productSelect.value]).forEach(mg => {
+      const opt = document.createElement("option");
+      opt.value = mg;
+      opt.textContent = `${mg} mg`;
+      mgSelect.appendChild(opt);
+    });
+    calculate();
+  }
+
+  productSelect.addEventListener("change", loadMGs);
+  mgSelect.addEventListener("change", calculate);
+  div.querySelector(".qty").addEventListener("input", calculate);
+
+  loadMGs();
+  itemsDiv.appendChild(div);
 }
 
 function calculate() {
-  const product = PRODUCTS[productSelect.value];
-  const mg = mgSelect.value;
-  const qty = Number(document.getElementById("qty").value);
-  const shipping = Number(shippingSelect.value);
+  const rows = document.querySelectorAll(".row");
+  let subtotal = 0;
+  let dadCost = 0;
 
-  const sale = product[mg].sale;
-  const raw = product[mg].raw;
+  rows.forEach(r => {
+    const p = r.querySelector(".product").value;
+    const mg = r.querySelector(".mg").value;
+    const qty = Number(r.querySelector(".qty").value);
 
-  const subtotal = sale * qty;
+    subtotal += PRODUCTS[p][mg].sale * qty;
+    dadCost += PRODUCTS[p][mg].raw * qty;
+  });
 
-  // 1️⃣ Dad payout from subtotal only, rounded smart
-  let dadPayoutBase = roundSmart(subtotal * DAD_PERCENT);
+  const shipping = Number(document.getElementById("shipping").value);
 
-  // 2️⃣ Add full shipping AFTER rounding
-  const dadPayout = fixFloat(dadPayoutBase + shipping);
-  const dadCost = raw * qty;
-  const dadTakeHome = fixFloat(dadPayout - dadCost);
-
-  // Your net = remainder of order total after dad payout
-  const yourNet = fixFloat(subtotal + shipping - dadPayout);
+  const dadBase = roundSmart(subtotal * DAD_PERCENT);
+  const dadPayout = fix(dadBase + shipping);
+  const dadTakeHome = fix(dadPayout - dadCost);
+  const yourNet = fix(subtotal + shipping - dadPayout);
 
   document.getElementById("output").innerHTML = `
-    <strong>Order Total:</strong> $${fixFloat(subtotal + shipping).toFixed(2)}<br>
+    <strong>Order Total:</strong> $${fix(subtotal + shipping).toFixed(2)}<br>
     <strong>Dad Payout:</strong> $${dadPayout.toFixed(2)}<br>
     <strong>Dad Cost:</strong> $${dadCost.toFixed(2)}<br>
     <strong>Dad Take-Home:</strong> $${dadTakeHome.toFixed(2)}<br>
@@ -182,16 +169,10 @@ function calculate() {
   `;
 }
 
-productSelect.addEventListener("change", () => {
-  loadMGs();
-  calculate();
-});
-mgSelect.addEventListener("change", calculate);
-document.getElementById("qty").addEventListener("input", calculate);
-shippingSelect.addEventListener("change", calculate);
+document.getElementById("shipping").addEventListener("change", calculate);
 
-loadMGs();
-calculate();
+/* ---------- Start with one item ---------- */
+addItem();
 </script>
 
 </body>
