@@ -21,32 +21,33 @@ label {
   margin-top: 12px;
   font-weight: bold;
 }
-select, input, button {
+select, input {
   width: 100%;
   padding: 8px;
   margin-top: 6px;
 }
-button {
-  cursor: pointer;
-}
-.line-item {
-  border: 1px solid #ddd;
-  padding: 12px;
-  border-radius: 6px;
-  margin-top: 12px;
-  background: #fafafa;
-}
 .result {
   margin-top: 18px;
-  background: #f0f0f0;
-  padding: 14px;
+  background: #fafafa;
+  padding: 12px;
   border-radius: 6px;
 }
-.remove-btn {
-  margin-top: 8px;
-  background: #e74c3c;
-  color: white;
+.item-row {
+  display: flex;
+  gap: 10px;
+  margin-top: 6px;
+}
+.item-row select, .item-row input {
+  flex: 1;
+}
+.add-btn {
+  margin-top: 12px;
+  padding: 8px 12px;
   border: none;
+  background: #4CAF50;
+  color: #fff;
+  cursor: pointer;
+  border-radius: 4px;
 }
 </style>
 </head>
@@ -55,9 +56,8 @@ button {
 <div class="card">
   <h2>Payout Calculator</h2>
 
-  <div id="items"></div>
-
-  <button onclick="addItem()">+ Add Item</button>
+  <div id="items-container"></div>
+  <button class="add-btn" id="addItemBtn">+ Add Peptide</button>
 
   <label>Shipping</label>
   <select id="shipping">
@@ -70,9 +70,8 @@ button {
 
 <script>
 const DAD_PERCENT = 0.4545;
-const PRICE_MULTIPLIER = 4.29;
 
-/* ---------- Rounding: ONLY round UP if above lower + 1.5 ---------- */
+/* ---------- Helper: Round UP to nearest 5 or 10 (only if > lower +1.5) ---------- */
 function roundSmart(n){
   const step = n <= 100 ? 5 : 10;
   const lower = Math.floor(n / step) * step;
@@ -80,12 +79,14 @@ function roundSmart(n){
   return Math.ceil(n / step) * step;
 }
 
-/* ---------- Fix floating errors ---------- */
-function fixFloat(n){
+/* ---------- Fix floating point errors ---------- */
+function fixFloat(n) {
   return Math.round(n * 100) / 100;
 }
 
-/* ---------- PRODUCTS ---------- */
+const PRICE_MULTIPLIER = 4.29;
+
+/* ---------- PRODUCT DATA ---------- */
 const PRODUCTS = {
   "Retatrutide": {5:{raw:14},10:{raw:18},15:{raw:22},20:{raw:25},30:{raw:35}},
   "Tirzepatide": {5:{raw:15},10:{raw:18},15:{raw:22},20:{raw:26},30:{raw:30},40:{raw:35},50:{raw:40},60:{raw:45}},
@@ -109,6 +110,7 @@ const PRODUCTS = {
   "GHK-CU": {50:{raw:18},100:{raw:35}},
   "DSIP": {5:{raw:12},10:{raw:20},15:{raw:28}},
   "Epithalon": {10:{raw:15},50:{raw:60}},
+  "KPV": {"see label":{raw:0}},
   "Semax": {5:{raw:12},10:{raw:20},30:{raw:50}},
   "Selank": {5:{raw:12},10:{raw:20},30:{raw:50}},
   "5-amino-1mq": {5:{raw:12},10:{raw:20},50:{raw:95}},
@@ -118,89 +120,105 @@ const PRODUCTS = {
   "FOXO4-DRI": {10:{raw:35}},
   "AHK-CU": {100:{raw:75}},
   "Glutathione": {1500:{raw:50}},
-  "HGH 191AA": {10:{raw:35},15:{raw:50},24:{raw:80},36:{raw:120}},
+  "HGH 191AA": {10:{raw:16},15:{raw:50},24:{raw:80},36:{raw:120}}, // fixed 10IU raw =16
   "KissPeptin-10": {10:{raw:18}},
   "Bacteriostatic Water": {10:{raw:3}},
   "Hospira Bacteriostatic Water": {30:{raw:6}},
   "Acetic Acid": {10:{raw:3}}
 };
 
-/* ---------- Calculate SALE prices ---------- */
-for (const p in PRODUCTS) {
-  for (const mg in PRODUCTS[p]) {
-    PRODUCTS[p][mg].sale = roundSmart(PRODUCTS[p][mg].raw * PRICE_MULTIPLIER);
+/* ---------- AUTO-CALCULATE SALE PRICES ---------- */
+for (const productName in PRODUCTS) {
+  const product = PRODUCTS[productName];
+  for (const mg in product) {
+    const rawPrice = product[mg].raw;
+    const salePrice = roundSmart(rawPrice * PRICE_MULTIPLIER);
+    product[mg].sale = salePrice;
   }
 }
 
-function addItem(){
-  const div = document.createElement("div");
-  div.className = "line-item";
+/* ---------- UI SETUP ---------- */
+const itemsContainer = document.getElementById("items-container");
+const shippingSelect = document.getElementById("shipping");
 
-  div.innerHTML = `
-    <label>Product</label>
-    <select class="product"></select>
+function createItemRow() {
+  const row = document.createElement("div");
+  row.className = "item-row";
 
-    <label>MG</label>
-    <select class="mg"></select>
-
-    <label>Qty</label>
-    <input type="number" class="qty" value="1" min="1">
-
-    <button class="remove-btn">Remove</button>
-  `;
-
-  document.getElementById("items").appendChild(div);
-
-  const productSelect = div.querySelector(".product");
-  const mgSelect = div.querySelector(".mg");
-
-  Object.keys(PRODUCTS).forEach(p=>{
-    const opt=document.createElement("option");
-    opt.value=p; opt.textContent=p;
-    productSelect.appendChild(opt);
+  const prodSelect = document.createElement("select");
+  Object.keys(PRODUCTS).forEach(p => {
+    const opt = document.createElement("option");
+    opt.value = p;
+    opt.textContent = p;
+    prodSelect.appendChild(opt);
   });
 
-  function loadMG(){
-    mgSelect.innerHTML="";
-    const prod=PRODUCTS[productSelect.value];
-    Object.keys(prod).forEach(mg=>{
-      const opt=document.createElement("option");
-      opt.value=mg; opt.textContent=mg+" mg";
+  const mgSelect = document.createElement("select");
+  function loadMGs() {
+    mgSelect.innerHTML = "";
+    const product = PRODUCTS[prodSelect.value];
+    Object.keys(product).forEach(mg => {
+      const opt = document.createElement("option");
+      opt.value = mg;
+      opt.textContent = `${mg} mg`;
       mgSelect.appendChild(opt);
     });
-    calculate();
   }
+  loadMGs();
+  prodSelect.addEventListener("change", loadMGs);
 
-  productSelect.addEventListener("change", loadMG);
-  mgSelect.addEventListener("change", calculate);
-  div.querySelector(".qty").addEventListener("input", calculate);
-  div.querySelector(".remove-btn").onclick = ()=>{ div.remove(); calculate(); };
+  const qtyInput = document.createElement("input");
+  qtyInput.type = "number";
+  qtyInput.value = 1;
+  qtyInput.min = 1;
 
-  loadMG();
+  row.appendChild(prodSelect);
+  row.appendChild(mgSelect);
+  row.appendChild(qtyInput);
+  itemsContainer.appendChild(row);
+
+  // recalc on change
+  [prodSelect, mgSelect, qtyInput].forEach(el => el.addEventListener("change", calculate));
 }
 
-function calculate(){
-  let subtotal=0;
-  let dadCost=0;
+document.getElementById("addItemBtn").addEventListener("click", createItemRow);
 
-  document.querySelectorAll(".line-item").forEach(item=>{
-    const p=item.querySelector(".product").value;
-    const mg=item.querySelector(".mg").value;
-    const qty=Number(item.querySelector(".qty").value);
-    const data=PRODUCTS[p][mg];
-    subtotal += data.sale * qty;
-    dadCost += data.raw * qty;
+// Add initial row
+createItemRow();
+
+/* ---------- CALCULATE TOTAL ---------- */
+function calculate() {
+  const shipping = Number(shippingSelect.value);
+  let subtotal = 0;
+  let dadPayoutBase = 0;
+  let dadCost = 0;
+
+  const rows = itemsContainer.querySelectorAll(".item-row");
+  rows.forEach(row => {
+    const prod = row.children[0].value;
+    const mg = row.children[1].value;
+    const qty = Number(row.children[2].value);
+
+    const sale = PRODUCTS[prod][mg].sale;
+    const raw = PRODUCTS[prod][mg].raw;
+
+    subtotal += sale * qty;
+    dadPayoutBase += sale * qty * DAD_PERCENT;
+    dadCost += raw * qty;
   });
 
-  const shipping=Number(document.getElementById("shipping").value);
+  // Round dad payout base smartly
+  dadPayoutBase = roundSmart(dadPayoutBase);
 
-  const dadBase = roundSmart(subtotal * DAD_PERCENT);
-  const dadPayout = fixFloat(dadBase + shipping);
+  // Add shipping AFTER rounding
+  const dadPayout = fixFloat(dadPayoutBase + shipping);
   const dadTakeHome = fixFloat(dadPayout - dadCost);
-  const yourNet = fixFloat(subtotal + shipping - dadPayout);
 
-  document.getElementById("output").innerHTML=`
-    <strong>Order Total:</strong> $${fixFloat(subtotal+shipping).toFixed(2)}<br>
+  const total = fixFloat(subtotal + shipping);
+  const yourNet = fixFloat(total - dadPayout);
+
+  document.getElementById("output").innerHTML = `
+    <strong>Order Total:</strong> $${total.toFixed(2)}<br>
     <strong>Dad Payout:</strong> $${dadPayout.toFixed(2)}<br>
     <strong>Dad Cost:</strong> $${dadCost.toFixed(2)}<br>
     <strong>Dad Take-Home:</strong> $${dadTakeHome.toFixed(2)}<br>
@@ -208,8 +226,11 @@ function calculate(){
   `;
 }
 
-document.getElementById("shipping").addEventListener("change", calculate);
-addItem();
+// Recalculate on shipping change
+shippingSelect.addEventListener("change", calculate);
+
+// Initial calculate
+calculate();
 </script>
 
 </body>
