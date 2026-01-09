@@ -49,7 +49,6 @@ button {
   <h2>Payout Calculator</h2>
 
   <div id="items"></div>
-
   <button onclick="addItem()">➕ Add Peptide</button>
 
   <label>Shipping</label>
@@ -72,19 +71,50 @@ function roundSmart(n){
   if (n - lower <= 1.5) return n;
   return Math.ceil(n / step) * step;
 }
-const fix = n => Math.round(n * 100) / 100;
+const fixFloat = n => Math.round(n * 100) / 100;
 
-/* ---------- PRODUCT DATA ---------- */
+/* ---------- PRODUCT DATA (UNCHANGED) ---------- */
 const PRODUCTS = {
   "Retatrutide": {5:{raw:14},10:{raw:18},15:{raw:22},20:{raw:25},30:{raw:35}},
-  "Tirzepatide": {5:{raw:15},10:{raw:18},15:{raw:22},20:{raw:26},30:{raw:30}},
+  "Tirzepatide": {5:{raw:15},10:{raw:18},15:{raw:22},20:{raw:26},30:{raw:30},40:{raw:35},50:{raw:40},60:{raw:45}},
   "Semaglutide": {5:{raw:12},10:{raw:16},15:{raw:20},20:{raw:24}},
+  "Cagrilintide": {5:{raw:10},10:{raw:18}},
+  "MOTS-C": {10:{raw:12},30:{raw:28},40:{raw:35}},
   "BPC-157": {10:{raw:10},20:{raw:18}},
+  "BPC 5mg + TB 5mg": {10:{raw:15}},
+  "BPC 10mg + TB 10mg": {20:{raw:28}},
   "TB500": {5:{raw:12},10:{raw:22}},
-  "GHK-CU": {50:{raw:18},100:{raw:35}}
+  "Melanotan": {10:{raw:15}},
+  "Melanotan 2": {10:{raw:18}},
+  "GLOW": {70:{raw:60}},
+  "KLOW": {80:{raw:65}},
+  "NAD+": {500:{raw:50},1000:{raw:95}},
+  "Ipamorelin": {5:{raw:12},10:{raw:20}},
+  "Tesamorelin": {5:{raw:15},10:{raw:28}},
+  "Sermorelin Acetate": {5:{raw:12},10:{raw:22}},
+  "SS-31 2": {10:{raw:18}},
+  "IGF-1 LR3": {1:{raw:10}},
+  "GHK-CU": {50:{raw:18},100:{raw:35}},
+  "DSIP": {5:{raw:12},10:{raw:20},15:{raw:28}},
+  "Epithalon": {10:{raw:15},50:{raw:60}},
+  "KPV": {"see label":{raw:0}},
+  "Semax": {5:{raw:12},10:{raw:20},30:{raw:50}},
+  "Selank": {5:{raw:12},10:{raw:20},30:{raw:50}},
+  "5-amino-1mq": {5:{raw:12},10:{raw:20},50:{raw:95}},
+  "CJC-1295 (no DAC)": {5:{raw:12},10:{raw:20}},
+  "CJC-1295 + Ipamorelin": {10:{raw:22}},
+  "AOD-9604": {5:{raw:12},10:{raw:20}},
+  "FOXO4-DRI": {10:{raw:35}},
+  "AHK-CU": {100:{raw:75}},
+  "Glutathione": {1500:{raw:50}},
+  "HGH 191AA": {10:{raw:35},15:{raw:50},24:{raw:80},36:{raw:120}},
+  "KissPeptin-10": {10:{raw:18}},
+  "Bacteriostatic Water": {10:{raw:3}},
+  "Hospira Bacteriostatic Water": {30:{raw:6}},
+  "Acetic Acid": {10:{raw:3}}
 };
 
-/* ---------- Calculate sale prices ---------- */
+/* ---------- AUTO-CALCULATE SALE PRICES ---------- */
 for (const p in PRODUCTS) {
   for (const mg in PRODUCTS[p]) {
     PRODUCTS[p][mg].sale = roundSmart(PRODUCTS[p][mg].raw * PRICE_MULTIPLIER);
@@ -94,10 +124,10 @@ for (const p in PRODUCTS) {
 const itemsDiv = document.getElementById("items");
 
 function addItem() {
-  const div = document.createElement("div");
-  div.className = "row";
+  const row = document.createElement("div");
+  row.className = "row";
 
-  div.innerHTML = `
+  row.innerHTML = `
     <label>Product</label>
     <select class="product"></select>
 
@@ -110,33 +140,33 @@ function addItem() {
     <button onclick="this.parentElement.remove(); calculate()">Remove</button>
   `;
 
-  const productSelect = div.querySelector(".product");
-  const mgSelect = div.querySelector(".mg");
+  const productSel = row.querySelector(".product");
+  const mgSel = row.querySelector(".mg");
 
   Object.keys(PRODUCTS).forEach(p => {
-    const opt = document.createElement("option");
-    opt.value = p;
-    opt.textContent = p;
-    productSelect.appendChild(opt);
+    const o = document.createElement("option");
+    o.value = p;
+    o.textContent = p;
+    productSel.appendChild(o);
   });
 
   function loadMGs() {
-    mgSelect.innerHTML = "";
-    Object.keys(PRODUCTS[productSelect.value]).forEach(mg => {
-      const opt = document.createElement("option");
-      opt.value = mg;
-      opt.textContent = `${mg} mg`;
-      mgSelect.appendChild(opt);
+    mgSel.innerHTML = "";
+    Object.keys(PRODUCTS[productSel.value]).forEach(mg => {
+      const o = document.createElement("option");
+      o.value = mg;
+      o.textContent = `${mg} mg`;
+      mgSel.appendChild(o);
     });
     calculate();
   }
 
-  productSelect.addEventListener("change", loadMGs);
-  mgSelect.addEventListener("change", calculate);
-  div.querySelector(".qty").addEventListener("input", calculate);
+  productSel.addEventListener("change", loadMGs);
+  mgSel.addEventListener("change", calculate);
+  row.querySelector(".qty").addEventListener("input", calculate);
 
   loadMGs();
-  itemsDiv.appendChild(div);
+  itemsDiv.appendChild(row);
 }
 
 function calculate() {
@@ -156,12 +186,12 @@ function calculate() {
   const shipping = Number(document.getElementById("shipping").value);
 
   const dadBase = roundSmart(subtotal * DAD_PERCENT);
-  const dadPayout = fix(dadBase + shipping);
-  const dadTakeHome = fix(dadPayout - dadCost);
-  const yourNet = fix(subtotal + shipping - dadPayout);
+  const dadPayout = fixFloat(dadBase + shipping);
+  const dadTakeHome = fixFloat(dadPayout - dadCost);
+  const yourNet = fixFloat(subtotal + shipping - dadPayout);
 
   document.getElementById("output").innerHTML = `
-    <strong>Order Total:</strong> $${fix(subtotal + shipping).toFixed(2)}<br>
+    <strong>Order Total:</strong> $${fixFloat(subtotal + shipping).toFixed(2)}<br>
     <strong>Dad Payout:</strong> $${dadPayout.toFixed(2)}<br>
     <strong>Dad Cost:</strong> $${dadCost.toFixed(2)}<br>
     <strong>Dad Take-Home:</strong> $${dadTakeHome.toFixed(2)}<br>
