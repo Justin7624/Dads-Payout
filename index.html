@@ -3,60 +3,76 @@
 <head>
 <meta charset="UTF-8">
 <title>Payout Calculator</title>
+
 <style>
 body {
   font-family: Arial, sans-serif;
   background: #f5f5f5;
   padding: 20px;
 }
+
 .card {
   max-width: 720px;
-  background: #fff;
+  background: #ffffff;
   padding: 20px;
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0,0,0,.1);
 }
+
 label {
   display: block;
   margin-top: 12px;
   font-weight: bold;
 }
-select, input {
+
+select,
+input {
   width: 100%;
   padding: 8px;
   margin-top: 6px;
 }
+
 .result {
   margin-top: 18px;
   background: #fafafa;
   padding: 12px;
   border-radius: 6px;
 }
+
 .item-row {
   display: flex;
   gap: 10px;
   margin-top: 6px;
 }
-.item-row select, .item-row input {
+
+.item-row select,
+.item-row input {
   flex: 1;
 }
+
 .add-btn {
   margin-top: 12px;
   padding: 8px 12px;
   border: none;
   background: #4CAF50;
-  color: #fff;
+  color: #ffffff;
   cursor: pointer;
   border-radius: 4px;
 }
+
+.add-btn:hover {
+  opacity: 0.9;
+}
 </style>
 </head>
+
 <body>
 
 <div class="card">
   <h2>Payout Calculator</h2>
 
   <div id="items-container"></div>
+
   <button class="add-btn" id="addItemBtn">+ Add Peptide</button>
 
   <label>Shipping</label>
@@ -69,24 +85,26 @@ select, input {
 </div>
 
 <script>
-const DAD_PERCENT = 0.4545;
+/* ================= CONFIG ================= */
 
-/* ---------- Helper: Round UP to nearest 5 or 10 (only if > lower +1.5) ---------- */
-function roundSmart(n){
+const DAD_PERCENT = 0.4545;
+const PRICE_MULTIPLIER = 4.29;
+
+/* ================= HELPERS ================= */
+
+function roundSmart(n) {
   const step = n <= 100 ? 5 : 10;
   const lower = Math.floor(n / step) * step;
   if (n - lower <= 1.5) return n;
   return Math.ceil(n / step) * step;
 }
 
-/* ---------- Fix floating point errors ---------- */
 function fixFloat(n) {
   return Math.round(n * 100) / 100;
 }
 
-const PRICE_MULTIPLIER = 4.29;
+/* ================= PRODUCT DATA ================= */
 
-/* ---------- PRODUCT DATA ---------- */
 const PRODUCTS = {
   "Retatrutide": {5:{raw:14},10:{raw:18},15:{raw:22},20:{raw:25},30:{raw:35}},
   "Tirzepatide": {5:{raw:15},10:{raw:18},15:{raw:22},20:{raw:26},30:{raw:30},40:{raw:35},50:{raw:40},60:{raw:45}},
@@ -120,24 +138,24 @@ const PRODUCTS = {
   "FOXO4-DRI": {10:{raw:35}},
   "AHK-CU": {100:{raw:75}},
   "Glutathione": {1500:{raw:50}},
-  "HGH 191AA": {10:{raw:16},15:{raw:50},24:{raw:80},36:{raw:120}}, // fixed 10IU raw =16
+  "HGH 191AA": {10:{raw:16},15:{raw:50},24:{raw:80},36:{raw:120}},
   "KissPeptin-10": {10:{raw:18}},
   "Bacteriostatic Water": {10:{raw:3}},
   "Hospira Bacteriostatic Water": {30:{raw:6}},
   "Acetic Acid": {10:{raw:3}}
 };
 
-/* ---------- AUTO-CALCULATE SALE PRICES ---------- */
+/* ================= SALE PRICE CALC ================= */
+
 for (const productName in PRODUCTS) {
-  const product = PRODUCTS[productName];
-  for (const mg in product) {
-    const rawPrice = product[mg].raw;
-    const salePrice = roundSmart(rawPrice * PRICE_MULTIPLIER);
-    product[mg].sale = salePrice;
+  for (const mg in PRODUCTS[productName]) {
+    const raw = PRODUCTS[productName][mg].raw;
+    PRODUCTS[productName][mg].sale = roundSmart(raw * PRICE_MULTIPLIER);
   }
 }
 
-/* ---------- UI SETUP ---------- */
+/* ================= UI SETUP ================= */
+
 const itemsContainer = document.getElementById("items-container");
 const shippingSelect = document.getElementById("shipping");
 
@@ -154,67 +172,60 @@ function createItemRow() {
   });
 
   const mgSelect = document.createElement("select");
+
   function loadMGs() {
     mgSelect.innerHTML = "";
-    const product = PRODUCTS[prodSelect.value];
-    Object.keys(product).forEach(mg => {
+    Object.keys(PRODUCTS[prodSelect.value]).forEach(mg => {
       const opt = document.createElement("option");
       opt.value = mg;
       opt.textContent = `${mg} mg`;
       mgSelect.appendChild(opt);
     });
   }
+
   loadMGs();
   prodSelect.addEventListener("change", loadMGs);
 
   const qtyInput = document.createElement("input");
   qtyInput.type = "number";
-  qtyInput.value = 1;
   qtyInput.min = 1;
+  qtyInput.value = 1;
 
   row.appendChild(prodSelect);
   row.appendChild(mgSelect);
   row.appendChild(qtyInput);
+
   itemsContainer.appendChild(row);
 
-  // recalc on change
-  [prodSelect, mgSelect, qtyInput].forEach(el => el.addEventListener("change", calculate));
+  [prodSelect, mgSelect, qtyInput].forEach(el =>
+    el.addEventListener("change", calculate)
+  );
 }
 
 document.getElementById("addItemBtn").addEventListener("click", createItemRow);
-
-// Add initial row
 createItemRow();
 
-/* ---------- CALCULATE TOTAL ---------- */
+/* ================= CALCULATION ================= */
+
 function calculate() {
   const shipping = Number(shippingSelect.value);
   let subtotal = 0;
-  let dadPayoutBase = 0;
   let dadCost = 0;
 
   const rows = itemsContainer.querySelectorAll(".item-row");
+
   rows.forEach(row => {
     const prod = row.children[0].value;
     const mg = row.children[1].value;
     const qty = Number(row.children[2].value);
 
-    const sale = PRODUCTS[prod][mg].sale;
-    const raw = PRODUCTS[prod][mg].raw;
-
-    subtotal += sale * qty;
-    dadPayoutBase += sale * qty * DAD_PERCENT;
-    dadCost += raw * qty;
+    subtotal += PRODUCTS[prod][mg].sale * qty;
+    dadCost += PRODUCTS[prod][mg].raw * qty;
   });
 
-  // Round dad payout base smartly
-  dadPayoutBase = roundSmart(dadPayoutBase);
-
-  // Add shipping AFTER rounding
-  const dadPayout = fixFloat(dadPayoutBase + shipping);
-  const dadTakeHome = fixFloat(dadPayout - dadCost);
-
+  const dadPayout = fixFloat(roundSmart(subtotal * DAD_PERCENT));
   const total = fixFloat(subtotal + shipping);
+  const dadTakeHome = fixFloat(dadPayout - dadCost);
   const yourNet = fixFloat(total - dadPayout);
 
   document.getElementById("output").innerHTML = `
@@ -226,10 +237,7 @@ function calculate() {
   `;
 }
 
-// Recalculate on shipping change
 shippingSelect.addEventListener("change", calculate);
-
-// Initial calculate
 calculate();
 </script>
 
