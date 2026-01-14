@@ -5,63 +5,60 @@
 <title>Payout Calculator</title>
 
 <style>
-body {
+body{
   font-family: Arial, sans-serif;
-  background: #f5f5f5;
-  padding: 20px;
+  background:#f5f5f5;
+  padding:20px;
 }
-
-.card {
-  max-width: 720px;
-  background: #ffffff;
-  padding: 20px;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0,0,0,.1);
+.card{
+  max-width:760px;
+  background:#fff;
+  padding:20px;
+  border-radius:8px;
+  box-shadow:0 2px 8px rgba(0,0,0,.1);
 }
-
-label {
-  display: block;
-  margin-top: 12px;
-  font-weight: bold;
+h2{
+  margin-top:0;
 }
-
-select,
-input {
-  width: 100%;
-  padding: 8px;
-  margin-top: 6px;
+label{
+  display:block;
+  margin-top:12px;
+  font-weight:bold;
 }
-
-.result {
-  margin-top: 18px;
-  background: #fafafa;
-  padding: 12px;
-  border-radius: 6px;
+select,input{
+  width:100%;
+  padding:8px;
+  margin-top:6px;
 }
-
-.item-row {
-  display: flex;
-  gap: 10px;
-  margin-top: 6px;
+.item-row{
+  display:flex;
+  gap:10px;
+  margin-top:8px;
 }
-
 .item-row select,
-.item-row input {
-  flex: 1;
+.item-row input{
+  flex:1;
 }
-
-.add-btn {
-  margin-top: 12px;
-  padding: 8px 12px;
-  border: none;
-  background: #4CAF50;
-  color: #ffffff;
-  cursor: pointer;
-  border-radius: 4px;
+.add-btn{
+  margin-top:14px;
+  padding:8px 12px;
+  border:none;
+  background:#4CAF50;
+  color:#fff;
+  cursor:pointer;
+  border-radius:4px;
 }
-
-.add-btn:hover {
-  opacity: 0.9;
+.result{
+  margin-top:18px;
+  background:#fafafa;
+  padding:14px;
+  border-radius:6px;
+  line-height:1.6;
+  font-size:15px;
+}
+.sub{
+  padding-left:16px;
+  color:#555;
 }
 </style>
 </head>
@@ -72,7 +69,6 @@ input {
   <h2>Payout Calculator</h2>
 
   <div id="items-container"></div>
-
   <button class="add-btn" id="addItemBtn">+ Add Peptide</button>
 
   <label>Shipping</label>
@@ -92,14 +88,16 @@ const PRICE_MULTIPLIER = 4.29;
 
 /* ================= HELPERS ================= */
 
-function roundSmart(n) {
+// round UP to nearest 5 or 10 only if clearly past threshold
+function roundSmart(n){
   const step = n <= 100 ? 5 : 10;
   const lower = Math.floor(n / step) * step;
-  if (n - lower <= 1.5) return n;
+  if (n - lower <= 1.5) return lower;
   return Math.ceil(n / step) * step;
 }
 
-function fixFloat(n) {
+// eliminate floating point noise
+function fixFloat(n){
   return Math.round(n * 100) / 100;
 }
 
@@ -123,12 +121,11 @@ const PRODUCTS = {
   "Ipamorelin": {5:{raw:12},10:{raw:20}},
   "Tesamorelin": {5:{raw:15},10:{raw:28}},
   "Sermorelin Acetate": {5:{raw:12},10:{raw:22}},
-  "SS-31 2": {10:{raw:18}},
+  "SS-31": {10:{raw:18}},
   "IGF-1 LR3": {1:{raw:10}},
   "GHK-CU": {50:{raw:18},100:{raw:35}},
   "DSIP": {5:{raw:12},10:{raw:20},15:{raw:28}},
   "Epithalon": {10:{raw:15},50:{raw:60}},
-  "KPV": {"see label":{raw:0}},
   "Semax": {5:{raw:12},10:{raw:20},30:{raw:50}},
   "Selank": {5:{raw:12},10:{raw:20},30:{raw:50}},
   "5-amino-1mq": {5:{raw:12},10:{raw:20},50:{raw:95}},
@@ -145,26 +142,26 @@ const PRODUCTS = {
   "Acetic Acid": {10:{raw:3}}
 };
 
-/* ================= SALE PRICE CALC ================= */
+/* ===== AUTO-CALCULATE SALE PRICES ===== */
 
-for (const productName in PRODUCTS) {
-  for (const mg in PRODUCTS[productName]) {
-    const raw = PRODUCTS[productName][mg].raw;
-    PRODUCTS[productName][mg].sale = roundSmart(raw * PRICE_MULTIPLIER);
+for(const p in PRODUCTS){
+  for(const mg in PRODUCTS[p]){
+    const raw = PRODUCTS[p][mg].raw;
+    PRODUCTS[p][mg].sale = roundSmart(raw * PRICE_MULTIPLIER);
   }
 }
 
-/* ================= UI SETUP ================= */
+/* ================= UI ================= */
 
 const itemsContainer = document.getElementById("items-container");
 const shippingSelect = document.getElementById("shipping");
 
-function createItemRow() {
+function createItemRow(){
   const row = document.createElement("div");
   row.className = "item-row";
 
   const prodSelect = document.createElement("select");
-  Object.keys(PRODUCTS).forEach(p => {
+  Object.keys(PRODUCTS).forEach(p=>{
     const opt = document.createElement("option");
     opt.value = p;
     opt.textContent = p;
@@ -173,12 +170,12 @@ function createItemRow() {
 
   const mgSelect = document.createElement("select");
 
-  function loadMGs() {
+  function loadMGs(){
     mgSelect.innerHTML = "";
-    Object.keys(PRODUCTS[prodSelect.value]).forEach(mg => {
+    Object.keys(PRODUCTS[prodSelect.value]).forEach(mg=>{
       const opt = document.createElement("option");
       opt.value = mg;
-      opt.textContent = `${mg} mg`;
+      opt.textContent = mg + " mg";
       mgSelect.appendChild(opt);
     });
   }
@@ -186,20 +183,17 @@ function createItemRow() {
   loadMGs();
   prodSelect.addEventListener("change", loadMGs);
 
-  const qtyInput = document.createElement("input");
-  qtyInput.type = "number";
-  qtyInput.min = 1;
-  qtyInput.value = 1;
+  const qty = document.createElement("input");
+  qty.type = "number";
+  qty.min = 1;
+  qty.value = 1;
 
   row.appendChild(prodSelect);
   row.appendChild(mgSelect);
-  row.appendChild(qtyInput);
-
+  row.appendChild(qty);
   itemsContainer.appendChild(row);
 
-  [prodSelect, mgSelect, qtyInput].forEach(el =>
-    el.addEventListener("change", calculate)
-  );
+  [prodSelect, mgSelect, qty].forEach(el=>el.addEventListener("change", calculate));
 }
 
 document.getElementById("addItemBtn").addEventListener("click", createItemRow);
@@ -207,34 +201,42 @@ createItemRow();
 
 /* ================= CALCULATION ================= */
 
-function calculate() {
+function calculate(){
   const shipping = Number(shippingSelect.value);
-  let subtotal = 0;
+
+  let productSubtotal = 0;
+  let dadProductRaw = 0;
   let dadCost = 0;
 
-  const rows = itemsContainer.querySelectorAll(".item-row");
-
-  rows.forEach(row => {
+  document.querySelectorAll(".item-row").forEach(row=>{
     const prod = row.children[0].value;
     const mg = row.children[1].value;
     const qty = Number(row.children[2].value);
 
-    subtotal += PRODUCTS[prod][mg].sale * qty;
-    dadCost += PRODUCTS[prod][mg].raw * qty;
+    const sale = PRODUCTS[prod][mg].sale;
+    const raw = PRODUCTS[prod][mg].raw;
+
+    productSubtotal += sale * qty;
+    dadProductRaw += sale * qty * DAD_PERCENT;
+    dadCost += raw * qty;
   });
 
-  const dadPayout = fixFloat(roundSmart(subtotal * DAD_PERCENT));
-  const total = fixFloat(subtotal + shipping);
-  const dadTakeHome = fixFloat(dadPayout - dadCost);
-  const yourNet = fixFloat(total - dadPayout);
+  const dadProduct = roundSmart(dadProductRaw);
+  const dadPayout = dadProduct + shipping;
+  const orderTotal = productSubtotal + shipping;
+
+  const dadTakeHome = dadPayout - dadCost;
+  const yourNet = orderTotal - dadPayout;
 
   document.getElementById("output").innerHTML = `
-    <strong>Order Total:</strong> $${total.toFixed(2)}<br>
-    <strong>Dad Payout:</strong> $${dadPayout.toFixed(2)}<br>
-    <strong>Dad Cost:</strong> $${dadCost.toFixed(2)}<br>
-    <strong>Dad Take-Home:</strong> $${dadTakeHome.toFixed(2)}<br>
-    <strong>Your Net:</strong> $${yourNet.toFixed(2)}
-  `;
+<strong>Order Total:</strong> $${orderTotal}<br>
+<strong>Dad Payout:</strong> $${dadPayout}<br>
+<div class="sub">└─ Products: $${dadProduct}</div>
+<div class="sub">└─ Shipping: $${shipping}</div>
+<strong>Dad Cost:</strong> $${dadCost}<br>
+<strong>Dad Take-Home:</strong> $${dadTakeHome}<br>
+<strong>Your Net:</strong> $${yourNet}
+`;
 }
 
 shippingSelect.addEventListener("change", calculate);
